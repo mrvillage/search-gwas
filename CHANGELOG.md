@@ -3,6 +3,7 @@
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+- Added `update` and `trait` commands
 
 <!-- next-url -->
 
