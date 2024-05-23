@@ -2,6 +2,9 @@
 name = "search-gwas"
 version = "0.0.1"
 edition = "2021"
+description = "Search the GWAS Catalog for associations"
+license = "MIT"
+repository = "https://github.com/mrvillage/search-gwas"
 
 [dependencies]
 chrono = { version = "0.4.38", features = ["rkyv"] }
