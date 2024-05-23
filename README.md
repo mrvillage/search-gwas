@@ -17,6 +17,6 @@ search-gwas trait hypothyroidism -g COL5A2 -g TSHR
 ```
 
 ### Additional options
-`-a` show full association data
-`-l` show PubMed links instead of IDs
-`-c` output CSV data
+- `-a` show full association data
+- `-l` show PubMed links instead of IDs
+- `-c` output CSV data
