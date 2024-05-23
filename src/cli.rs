@@ -26,7 +26,9 @@ impl Run for Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    #[command(about = "Download the latest GWAS and EFO data if available")]
     Update(Update),
+    #[command(about = "Query the GWAS catalog for a trait")]
     Trait(Trait),
 }
 
@@ -67,12 +69,21 @@ impl Run for Update {
 
 #[derive(Args)]
 struct Trait {
+    #[arg(help = "The EFO label to query")]
     efo: String,
-    #[arg(short, long, action = clap::ArgAction::Append)]
+    #[arg(short, long, action = clap::ArgAction::Append, help = "Gene(s) to query")]
     gene: Vec<String>,
-    #[arg(short = 'a', long = "with-associations", help = "Show associations")]
+    #[arg(
+        short = 'a',
+        long = "with-associations",
+        help = "Show full association data"
+    )]
     with_associations: bool,
-    #[arg(short = 'l', long = "with-pubmed-links", help = "Show PubMed links")]
+    #[arg(
+        short = 'l',
+        long = "with-pubmed-links",
+        help = "Show PubMed links instead of IDs"
+    )]
     with_pubmed_links: bool,
     #[arg(short, long, help = "Replace tables with CSV output")]
     csv: bool,
@@ -80,6 +91,7 @@ struct Trait {
 
 impl Run for Trait {
     fn run(self, ctx: Context) {
+        check_for_updates(&ctx.dir, false, 0);
         let orig = self.efo.trim();
         let genes = parse_genes(&self.gene);
         let efos = load_efo(&ctx.dir);

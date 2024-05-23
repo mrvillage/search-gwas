@@ -9,7 +9,7 @@ use std::{
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use reqwest::blocking::Client;
+use reqwest::blocking::{Client, ClientBuilder};
 use rkyv::ser::serializers::AllocSerializer;
 
 use crate::{
@@ -272,7 +272,7 @@ fn write_efo_file(client: &Client, dir: &Path, local: bool) {
 }
 
 pub fn check_for_updates(dir: &Path, local: bool, force: u8) {
-    let client = Client::new();
+    let client = ClientBuilder::new().timeout(None).build().unwrap();
     let metadata_path = metadata_path(dir);
     match std::fs::read(&metadata_path) {
         Ok(bytes) => {
