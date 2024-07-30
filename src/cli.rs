@@ -1,8 +1,8 @@
 use clap::{Args, Parser, Subcommand};
 
 use crate::{
-    files::{check_for_updates, load_associations, load_efo},
-    query::{find_efo, parse_genes, query},
+    files::{check_for_updates, get_az_dir, load_associations, load_efo},
+    query::{find_efo, parse_genes, query, query_az},
     Context,
 };
 
@@ -30,6 +30,10 @@ enum Commands {
     Update(Update),
     #[command(about = "Query the GWAS catalog for a trait")]
     Trait(Trait),
+    #[command(about = "Update the AstraZeneca PheWAS catalog", hide = true)]
+    AzUpdate(AzUpdate),
+    #[command(about = "Query the AstraZeneca PheWAS catalog for a trait")]
+    AzTrait(AzTrait),
 }
 
 impl Run for Commands {
@@ -38,6 +42,8 @@ impl Run for Commands {
         match self {
             Self::Update(update) => update.run(ctx),
             Self::Trait(query) => query.run(ctx),
+            Self::AzUpdate(update) => update.run(ctx),
+            Self::AzTrait(query) => query.run(ctx),
         }
     }
 }
@@ -111,5 +117,38 @@ impl Run for Trait {
             self.with_pubmed_links,
             self.csv,
         );
+    }
+}
+
+#[derive(Args)]
+struct AzUpdate;
+
+impl Run for AzUpdate {
+    fn run(self, ctx: Context) {
+        let dir = get_az_dir();
+    }
+}
+
+#[derive(Args)]
+struct AzTrait {
+    #[arg(help = "The trait to query")]
+    trait_: String,
+    #[arg(short, long, action = clap::ArgAction::Append, help = "Gene(s) to query")]
+    gene: Vec<String>,
+    #[arg(
+        short = 'a',
+        long = "with-associations",
+        help = "Show full association data"
+    )]
+    with_associations: bool,
+    #[arg(short, long, help = "Replace tables with CSV output")]
+    csv: bool,
+}
+
+impl Run for AzTrait {
+    fn run(self, _ctx: Context) {
+        let orig = self.trait_.trim().to_lowercase();
+        let genes = parse_genes(&self.gene);
+        query_az(&orig, genes, self.with_associations, self.csv);
     }
 }

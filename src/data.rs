@@ -16,6 +16,16 @@ pub struct Association {
     pub(crate) pubmed: u32,
 }
 
+#[derive(Debug, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
+pub struct AzAssociation {
+    #[serde(rename = "phenotype")]
+    pub(crate) trait_: String,
+    #[serde(rename = "pValue")]
+    pub(crate) p_value: f64,
+    #[serde(rename = "GENE")]
+    pub(crate) mapped_gene: String,
+}
+
 impl Eq for Association {}
 #[allow(clippy::derive_ord_xor_partial_ord)]
 impl Ord for Association {
@@ -43,6 +53,34 @@ impl Association {
     #[inline]
     pub fn is_associated_with(&self, efo: u32) -> bool {
         self.traits.contains(&efo)
+    }
+}
+
+impl Eq for AzAssociation {}
+#[allow(clippy::derive_ord_xor_partial_ord)]
+impl Ord for AzAssociation {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+impl Hash for AzAssociation {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.trait_.hash(state);
+        self.p_value.to_bits().hash(state);
+        self.mapped_gene.hash(state);
+    }
+}
+
+impl AzAssociation {
+    #[inline]
+    pub fn is_significant(&self) -> bool {
+        self.p_value < THRESHOLD
+    }
+
+    #[inline]
+    pub fn is_associated_with(&self, term: &str) -> bool {
+        self.trait_.as_str().contains(term)
     }
 }
 

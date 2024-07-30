@@ -7,14 +7,16 @@ use std::{
 };
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
+use csv::DeserializeRecordsIntoIter;
+use flate2::read::GzDecoder;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use rayon::iter::{ParallelBridge, ParallelIterator};
+use rayon::iter::{plumbing::Folder, ParallelBridge, ParallelIterator};
 use reqwest::blocking::{Client, ClientBuilder};
 use rkyv::ser::serializers::AllocSerializer;
 
 use crate::{
     consts::{OBO_IN_OWL_NS, OWL_NS, RDFS_NS, RDF_NS},
-    data::{Association, Efo, Metadata},
+    data::{Association, AzAssociation, Efo, Metadata},
 };
 
 #[inline]
@@ -326,6 +328,19 @@ pub fn get_data_dir() -> PathBuf {
         .join("search-gwas")
 }
 
+pub fn get_global_dir() -> PathBuf {
+    let dir = "/usr/local/share/search-gwas";
+    if Path::new(dir).exists() {
+        PathBuf::from(dir)
+    } else {
+        get_data_dir()
+    }
+}
+
+pub fn get_az_dir() -> PathBuf {
+    get_global_dir().join("az470k-proteomics")
+}
+
 pub fn associations_path(dir: &Path) -> PathBuf {
     dir.join("associations.rkyv")
 }
@@ -359,4 +374,101 @@ pub fn load_associations(dir: &Path) -> Vec<Association> {
 pub fn load_efo(dir: &Path) -> Vec<Efo> {
     let file = std::fs::read(efo_path(dir)).unwrap();
     unsafe { rkyv::from_bytes_unchecked::<Vec<Efo>>(&file).unwrap() }
+}
+
+pub struct AzAssociations {
+    binary: Option<DeserializeRecordsIntoIter<GzDecoder<File>, AzAssociation>>,
+    proteomics: Option<DeserializeRecordsIntoIter<GzDecoder<File>, AzAssociation>>,
+    quantitative: Option<DeserializeRecordsIntoIter<GzDecoder<File>, AzAssociation>>,
+}
+
+impl AzAssociations {
+    pub fn new() -> Self {
+        let file = std::fs::File::open(get_az_dir().join("binary.csv.gz"));
+        let binary = if let Ok(file) = file {
+            let reader = csv::ReaderBuilder::new()
+                .has_headers(true)
+                .from_reader(flate2::read::GzDecoder::new(file));
+            Some(reader.into_deserialize::<AzAssociation>())
+        } else {
+            None
+        };
+        let file = std::fs::File::open(get_az_dir().join("proteomics.csv.gz"));
+        let proteomics = if let Ok(file) = file {
+            let reader = csv::ReaderBuilder::new()
+                .has_headers(true)
+                .from_reader(flate2::read::GzDecoder::new(file));
+            Some(reader.into_deserialize::<AzAssociation>())
+        } else {
+            None
+        };
+        let file = std::fs::File::open(get_az_dir().join("quantitative.csv.gz"));
+        let quantitative = if let Ok(file) = file {
+            let reader = csv::ReaderBuilder::new()
+                .has_headers(true)
+                .from_reader(flate2::read::GzDecoder::new(file));
+            Some(reader.into_deserialize::<AzAssociation>())
+        } else {
+            None
+        };
+        Self {
+            binary,
+            proteomics,
+            quantitative,
+        }
+    }
+}
+
+impl Iterator for AzAssociations {
+    type Item = AzAssociation;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(iter) = &mut self.binary {
+            if let Some(assoc) = iter.next() {
+                return Some(assoc.unwrap());
+            }
+        }
+        if let Some(iter) = &mut self.proteomics {
+            if let Some(assoc) = iter.next() {
+                return Some(assoc.unwrap());
+            }
+        }
+        if let Some(iter) = &mut self.quantitative {
+            if let Some(assoc) = iter.next() {
+                return Some(assoc.unwrap());
+            }
+        }
+        None
+    }
+}
+
+impl ParallelIterator for AzAssociations {
+    type Item = AzAssociation;
+
+    fn drive_unindexed<C>(self, consumer: C) -> C::Result
+    where
+        C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
+    {
+        if let Some(iter) = self.binary {
+            println!("BINARY");
+            iter.into_iter()
+                .par_bridge()
+                .filter_map(Result::ok)
+                .drive_unindexed(consumer)
+        } else if let Some(iter) = self.proteomics {
+            println!("PROTEOMICS");
+            iter.into_iter()
+                .par_bridge()
+                .filter_map(Result::ok)
+                .drive_unindexed(consumer)
+        } else if let Some(iter) = self.quantitative {
+            println!("QUANTITATIVE");
+            iter.into_iter()
+                .par_bridge()
+                .filter_map(Result::ok)
+                .drive_unindexed(consumer)
+        } else {
+            consumer.into_folder().complete()
+        }
+    }
 }

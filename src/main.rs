@@ -18,6 +18,11 @@ struct Context {
 }
 
 fn main() {
+    let _ = env_logger::Builder::from_env(
+        env_logger::Env::default().filter_or("SEARCH_GWAS_LOG", "warn"),
+    )
+    .try_init();
+
     let cli = Cli::parse();
 
     let dir = get_data_dir();
